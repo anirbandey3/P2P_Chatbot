@@ -9,3 +9,4 @@ google==3.0.0
 beautifulsoup4==4.12.3
 html2text==2020.1.16
 requests==2.31.0
+matplotlib
