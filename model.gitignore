@@ -1,0 +1,36 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+*.env
+
+# Model cache and embeddings
+models/
+chroma_db/
+embeddings/
+
+# Document files (store these elsewhere)
+*.pdf
+*.docx
+
+# Application data
+feedback_data.json
+
+# Virtual environment
+venv/
+env/
+
+# IDE specific files
+.vscode/
+.idea/
+
+# Windows specific
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+logs/
