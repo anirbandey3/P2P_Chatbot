@@ -25,51 +25,325 @@ from urllib.parse import urljoin
 import re
 
 
-# Configure page settings
-st.set_page_config(page_title="P2P Chatbot", layout="wide")
+# ------- Authentication System -------
 
+def load_users():
+    """Load existing users from the JSON file"""
+    if os.path.exists("users.json"):
+        with open("users.json", "r") as f:
+            return json.load(f)
+    return {}
+
+def save_users(users):
+    """Save users to the JSON file"""
+    with open("users.json", "w") as f:
+        json.dump(users, f)
+
+def hash_password(password):
+    """Hash password for secure storage"""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def is_authenticated():
+    """Check if user is authenticated"""
+    return 'authenticated' in st.session_state and st.session_state.authenticated
+
+def authenticate(username, password):
+    """Authenticate a user"""
+    users = load_users()
+    if username in users and users[username]["password"] == hash_password(password):
+        st.session_state.authenticated = True
+        st.session_state.username = username
+        return True
+    return False
+
+def create_account(username, password, email):
+    """Create a new user account"""
+    users = load_users()
+    if username in users:
+        return False, "Username already exists"
+    
+    # Validate email format (basic check)
+    if "@" not in email or "." not in email:
+        return False, "Invalid email format"
+    
+    # Validate password strength
+    if len(password) < 6:
+        return False, "Password must be at least 6 characters"
+    
+    # Create user
+    users[username] = {
+        "password": hash_password(password),
+        "email": email,
+        "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    save_users(users)
+    return True, "Account created successfully!"
+
+def logout():
+    """Log out the current user"""
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+
+# ------- UI Helper Functions -------
+
+def add_logo_and_background():
+    """Add logo and background to the page"""
+    st.markdown(
+        """
+        <style>
+        .main {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+        .auth-container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 450px;
+            margin: 0 auto;
+            margin-top: 2rem;
+        }
+        .auth-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .auth-form {
+            margin-bottom: 1rem;
+        }
+        .auth-button {
+            width: 100%;
+            margin-top: 1rem;
+        }
+        .toggle-link {
+            text-align: center;
+            margin-top: 1rem;
+            cursor: pointer;
+            color: #4e6bba;
+        }
+        .toggle-link:hover {
+            text-decoration: underline;
+        }
+        .app-title {
+            font-family: 'Arial', sans-serif;
+            font-weight: bold;
+            font-size: 2.5rem;
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+        .app-subtitle {
+            font-family: 'Arial', sans-serif;
+            font-size: 1.2rem;
+            color: #7f8c8d;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .stApp > header {
+            background-color: transparent;
+        }
+        .stTextInput > div > div > input {
+            padding: 12px 15px;
+            border-radius: 8px;
+        }
+        .stButton > button {
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-weight: 600;
+            background-color: #4361ee;
+            color: white;
+            border: none;
+            transition: all 0.3s;
+        }
+        .stButton > button:hover {
+            background-color: #3a56d4;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+# ------- Login Page Function -------
+
+def show_login_page():
+    """Display the login page"""
+    add_logo_and_background()
+    
+    st.markdown("<h1 class='app-title'>P2P Assistant</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='app-subtitle'>Your Oracle Payables Expert</p>", unsafe_allow_html=True)
+    
+    # Login container
+    st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
+    st.markdown("<h2 class='auth-header'>Login</h2>", unsafe_allow_html=True)
+    
+    username = st.text_input("Username", key="login_username")
+    password = st.text_input("Password", type="password", key="login_password")
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        login_button = st.button("Login", use_container_width=True)
+    with col2:
+        if st.button("Demo", use_container_width=True):
+            # Set demo mode - instant access with limited features
+            st.session_state.authenticated = True
+            st.session_state.username = "demo_user"
+            st.session_state.demo_mode = True
+            st.rerun()
+    
+    if login_button:
+        if authenticate(username, password):
+            st.session_state.demo_mode = False
+            st.rerun()
+        else:
+            st.error("Invalid username or password")
+    
+    st.markdown("<div class='toggle-link'>", unsafe_allow_html=True)
+    if st.button("Don't have an account? Sign up"):
+        st.session_state.show_signup = True
+        st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Add some information about the app below the login form
+    st.markdown("---")
+    st.markdown("### About P2P Assistant")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("""
+        - Get instant answers about Oracle Payables
+        - Query database tables and schemas
+        - Learn P2P processes and best practices
+        - Access official documentation
+        """)
+    with col2:
+        st.markdown("""
+        - AI-powered assistance
+        - Real-time information lookup
+        - Comprehensive documentation search
+        - Rating system for better responses
+        """)
+
+# ------- Signup Page Function -------
+
+def show_signup_page():
+    """Display the signup page"""
+    add_logo_and_background()
+    
+    st.markdown("<h1 class='app-title'>P2P Assistant</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='app-subtitle'>Your Oracle Payables Expert</p>", unsafe_allow_html=True)
+    
+    # Signup container
+    st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
+    st.markdown("<h2 class='auth-header'>Create an Account</h2>", unsafe_allow_html=True)
+    
+    username = st.text_input("Username", key="signup_username")
+    email = st.text_input("Email Address")
+    password = st.text_input("Password", type="password", key="signup_password")
+    confirm_password = st.text_input("Confirm Password", type="password")
+    
+    signup_button = st.button("Sign Up", use_container_width=True)
+    
+    if signup_button:
+        if password != confirm_password:
+            st.error("Passwords do not match")
+        else:
+            success, message = create_account(username, password, email)
+            if success:
+                st.success(message)
+                # Auto-login after successful signup
+                authenticate(username, password)
+                st.session_state.demo_mode = False
+                st.rerun()
+            else:
+                st.error(message)
+    
+    st.markdown("<div class='toggle-link'>", unsafe_allow_html=True)
+    if st.button("Already have an account? Login"):
+        st.session_state.show_signup = False
+        st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ------- Profile Component -------
+
+def show_profile_component():
+    """Display user profile in the sidebar"""
+    if is_authenticated():
+        users = load_users()
+        user_data = users.get(st.session_state.username, {})
+        
+        with st.sidebar:
+            st.sidebar.title("User Profile")
+            st.sidebar.write(f"Username: {st.session_state.username}")
+            
+            if 'email' in user_data:
+                st.sidebar.write(f"Email: {user_data['email']}")
+            
+            if 'created_at' in user_data:
+                st.sidebar.write(f"Account created: {user_data['created_at']}")
+            
+            if st.sidebar.button("Logout"):
+                logout()
+                st.rerun()
+            
+            # Add some visual separator
+            st.sidebar.markdown("---")
+
+# ------- Original P2P Chatbot Logic -------
+
+# API Keys
 GOOGLE_API_KEY = "AIzaSyC79GAiVjR-hFbIGxne7Fp0duT8bs8wniE"
 GOOGLE_CSE_ID = "22b40f99ada7e4fc1" 
 GEMINI_API_KEY = "AIzaSyDbpQo8dISvrlrph3EGf-CDGgoBN-EBCxo"
-genai.configure(api_key=GEMINI_API_KEY)
 
 # Initialize Gemini model
+genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-pro')
 
 # Initialize session state variables
 if "messages" not in st.session_state:
-   st.session_state["messages"] = []
-   
+    st.session_state["messages"] = []
+    
 if "feedback_data" not in st.session_state:
-   st.session_state["feedback_data"] = {}
+    st.session_state["feedback_data"] = {}
 
 if "current_query" not in st.session_state:
-   st.session_state["current_query"] = None
-   
+    st.session_state["current_query"] = None
+    
 if "awaiting_regeneration" not in st.session_state:
-   st.session_state["awaiting_regeneration"] = False
+    st.session_state["awaiting_regeneration"] = False
 
 if "query_attempts" not in st.session_state:
-   st.session_state["query_attempts"] = {}
+    st.session_state["query_attempts"] = {}
 
 if "doc_data" not in st.session_state:
-   st.session_state["doc_data"] = None
+    st.session_state["doc_data"] = None
 
 if "vectorstore" not in st.session_state:
-   st.session_state["vectorstore"] = None
+    st.session_state["vectorstore"] = None
 
 if "detected_schema" not in st.session_state:
-   st.session_state["detected_schema"] = None
-   
+    st.session_state["detected_schema"] = None
+    
 if "detected_table" not in st.session_state:
-   st.session_state["detected_table"] = None
+    st.session_state["detected_table"] = None
+
+if "show_signup" not in st.session_state:
+    st.session_state["show_signup"] = False
 
 # File to store feedback data
 FEEDBACK_FILE = "feedback_data.json"
 
-# List of common words to ignore in table detection
+# Common words to ignore in table detection
 COMMON_WORDS = ["GIVE", "SHOW", "LIST", "DISPLAY", "GET", "FIND", "TELL", "FETCH", "PROVIDE", 
                "THE", "FOR", "FROM", "COLUMNS", "FIELDS", "TABLE", "TABLES", "COLUMN", "FIELD","WHAT"]
+
+# All other existing functions from the original code remain the same
+# Just import them as they are. For this example, we'll recreate the main function
+# to include authentication flow
 
 def load_feedback_data():
     """Load feedback data from file if it exists"""
@@ -190,7 +464,7 @@ def display_chat_message(role, content, code=None, results=None, recommendations
 def get_embeddings_model():
    """Initialize and cache the embedding model"""
    try:
-       return HuggingFaceEmbeddings(
+       model = HuggingFaceEmbeddings(
            model_name="all-MiniLM-L6-v2",
            model_kwargs={'device': 'cpu'},
            encode_kwargs={'normalize_embeddings': True}
@@ -203,224 +477,78 @@ def get_embeddings_model():
    except Exception as e:
        st.error(f"Failed to initialize embeddings model: {str(e)}")
        return None
-   
-def fetch_table_columns_from_json(table_name, schema_name="AP", json_file="schema_table_links.json"):
-   """Fetch column details for a specific table using a JSON file with schema and table URLs."""
-   try:
-       print(f"Fetching columns for {schema_name}.{table_name}")
-       
-       # Load the JSON file
-       with open(json_file, "r") as f:
-           schema_data = json.load(f)
 
-       # Check if the schema exists in the JSON file
-       if schema_name not in schema_data:
-           print(f"Schema '{schema_name}' not found in JSON file. Available schemas: {list(schema_data.keys())}")
-           return f"No schema found for '{schema_name}'. Please verify the schema name."
-
-       # Check format of schema data
-       print(f"Type of schema_data[{schema_name}]: {type(schema_data[schema_name])}")
-       
-       # If it's a string (the URL for all tables in schema)
-       if isinstance(schema_data[schema_name], str):
-           # Modify URL to target specific table
-           base_url = schema_data[schema_name]
-           # Replace the wildcard with the specific table name
-           table_url = base_url.replace("*", table_name.upper())
-           print(f"Using schema URL: {table_url}")
-       
-       # If it's a list of table URLs
-       elif isinstance(schema_data[schema_name], list):
-           # Find the URL for the requested table
-           table_url = None
-           print(f"Looking for c_name={table_name.upper()} in URLs")
-           for url in schema_data[schema_name]:
-               if f"c_name={table_name.upper()}" in url:
-                   table_url = url
-                   print(f"Found matching URL: {url}")
-                   break
-
-           if not table_url:
-               print(f"No URL match for '{table_name}' in schema '{schema_name}'")
-               return f"No table found for '{table_name}' in schema '{schema_name}'. Please verify the table name."
-       else:
-           return f"Schema '{schema_name}' has an unsupported data format."
-
-       # Fetch the table details page
-       print(f"Fetching table details from URL: {table_url}")
-       response = requests.get(table_url, timeout=10)
-       response.raise_for_status()
-       print(f"Response status: {response.status_code}")
-       soup = BeautifulSoup(response.text, "html.parser")
-
-       # Find the table containing column details
-       column_table = soup.find("table", {"summary": "Column details for this table"})
-       if not column_table:
-           print("Column details table not found in HTML response")
-           return f"No column details found for table '{table_name}'."
-
-       # Extract column details
-       columns = []
-       rows = column_table.find_all("tr")[1:]  # Skip the header row
-       for row in rows:
-           cells = row.find_all("td")
-           if len(cells) >= 5:
-               column_name = cells[0].text.strip()
-               data_type = cells[1].text.strip()
-               length = cells[2].text.strip()
-               nullable = cells[3].text.strip()
-               description = cells[4].text.strip()
-               columns.append({
-                   "name": column_name,
-                   "type": data_type,
-                   "length": length,
-                   "nullable": nullable,
-                   "description": description
-               })
-
-       # Format the response
-       if columns:
-           formatted_columns = "\n".join(
-               [f"- **{col['name']}** ({col['type']}): Length={col['length']}, Nullable={col['nullable']}, Description={col['description']}" for col in columns]
-           )
-           return f"### Columns in {schema_name}.{table_name}\n\n{formatted_columns}"
-       else:
-           return f"No column details found for table '{schema_name}.{table_name}'."
-   except FileNotFoundError:
-       return f"JSON file '{json_file}' not found. Please ensure the file exists."
-   except Exception as e:
-       return f"Failed to fetch table columns: {str(e)}"
-
-def get_relevant_chunks(query, doc_data):
-   """Retrieve relevant text chunks using embeddings and similarity search."""
-   if not doc_data or 'chunks' not in doc_data or not doc_data['chunks']:
-       st.error("No document content available")
-       return []
-
-   try:
-       # Get cached embedding model
-       embeddings_model = get_embeddings_model()
-       if embeddings_model is None:
-           st.error("Failed to initialize embeddings model")
-           return []
-
-       # Create or get vectorstore
-       if "vectorstore" not in st.session_state or st.session_state.vectorstore is None:
-           with st.spinner("Creating embeddings..."):
-               try:
-                   # Create ChromaDB directory if it doesn't exist
-                   os.makedirs("./chroma_db", exist_ok=True)
-                   
-                   # Create new vectorstore with persist
-                   st.session_state.vectorstore = Chroma(
-                       persist_directory="./chroma_db",
-                       embedding_function=embeddings_model
-                   )
-                   
-                   # Add documents to vectorstore
-                   st.session_state.vectorstore.add_texts(
-                       texts=doc_data['chunks']
-                   )
-                   
-                   st.success("Embeddings created successfully!")
-               except Exception as e:
-                   st.error(f"Failed to create vectorstore: {str(e)}")
-                   return []
-
-       # Perform similarity search
-       try:
-           results = st.session_state.vectorstore.similarity_search(
-               query,
-               k=5  # Reduced from 5 to 3 for better relevance
-           )
-           if not results:
-               st.warning("No relevant content found")
-               return []
-           
-           return [doc.page_content for doc in results]
-       except Exception as e:
-           st.error(f"Search failed: {str(e)}")
-           return []
-
-   except Exception as e:
-       st.error(f"Error processing embeddings: {str(e)}")
-       return []
-
-
+# Include other functions from the original code
 def process_doc():
-   """Process the DOC file and store its content"""
-   try:
-       file_path = os.path.join(os.path.dirname(__file__), "Payables User Guide.docx")
-       if os.path.exists(file_path):
-           doc = Document(file_path)
-           text = ""
-           
-           # Extract text from paragraphs
-           for paragraph in doc.paragraphs:
-               text += paragraph.text + "\n"
-               
-           # Extract text from tables
-           for table in doc.tables:
-               for row in table.rows:
-                   for cell in row.cells:
-                       text += cell.text + " "
-                   text += "\n"
-           
-           # Split text into chunks
-           text_splitter = RecursiveCharacterTextSplitter(
-               chunk_size=1000,
-               chunk_overlap=200,
-               length_function=len
-           )
-           chunks = text_splitter.split_text(text)
-           
-           st.session_state.doc_data = {
-               'text': text,
-               'chunks': chunks,
-               'filename': os.path.basename(file_path),
-               'summary': f"Document contains {len(doc.paragraphs)} paragraphs and {len(chunks)} text chunks."
-           }
-           return True
-   except Exception as e:
-       st.error(f"Error processing DOC file: {e}")
-       return False
-   
-def get_web_content(query, num_results=3):
-   """Get relevant content using Google Custom Search API"""
-   web_content = []
-   
-   try:
-       # Initialize the Custom Search API service
-       service = build(
-           "customsearch", "v1",
-           developerKey=GOOGLE_API_KEY
-       )
-       
-       # Perform the search
-       result = service.cse().list(
-           q=query,
-           cx=GOOGLE_CSE_ID,
-           num=num_results
-       ).execute()
-       
-       # Process search results
-       if 'items' in result:
-           for item in result['items']:
-               web_content.append({
-                   'url': item['link'],
-                   'title': item.get('title', ''),
-                   'content': item.get('snippet', ''),
-                   'source': 'Google Custom Search'
-               })
-               
-       return web_content
-   except Exception as e:
-       st.error(f"Google Search API failed: {str(e)}")
-       return []
+    """Process the DOC file and store its content"""
+    try:
+        file_path = os.path.join(os.path.dirname(__file__), "Payables User Guide.docx")
+        if os.path.exists(file_path):
+            doc = Document(file_path)
+            text = ""
+            
+            # Extract text from paragraphs
+            for paragraph in doc.paragraphs:
+                text += paragraph.text + "\n"
+                
+            # Extract text from tables
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        text += cell.text + " "
+                    text += "\n"
+            
+            # Split text into chunks
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200,
+                length_function=len
+            )
+            chunks = text_splitter.split_text(text)
+            
+            st.session_state.doc_data = {
+                'text': text,
+                'chunks': chunks,
+                'filename': os.path.basename(file_path),
+                'summary': f"Document contains {len(doc.paragraphs)} paragraphs and {len(chunks)} text chunks."
+            }
+            return True
+    except Exception as e:
+        st.error(f"Error processing DOC file: {e}")
+        return False
 
-# Common words to exclude from table candidates
-COMMON_WORDS = {"SELECT", "FROM", "WHERE", "TABLE", "COLUMN", "COLUMNS", "FIELDS", "STRUCTURE", "SCHEMA",
-                "SHOW", "LIST", "GIVE", "GET", "DISPLAY", "FETCH"}
+def get_web_content(query, num_results=3):
+    """Get relevant content using Google Custom Search API"""
+    web_content = []
+    
+    try:
+        # Initialize the Custom Search API service
+        service = build(
+            "customsearch", "v1",
+            developerKey=GOOGLE_API_KEY
+        )
+        
+        # Perform the search
+        result = service.cse().list(
+            q=query,
+            cx=GOOGLE_CSE_ID,
+            num=num_results
+        ).execute()
+        
+        # Process search results
+        if 'items' in result:
+            for item in result['items']:
+                web_content.append({
+                    'url': item['link'],
+                    'title': item.get('title', ''),
+                    'content': item.get('snippet', ''),
+                    'source': 'Google Custom Search'
+                })
+                
+        return web_content
+    except Exception as e:
+        st.error(f"Google Search API failed: {str(e)}")
+        return []
 
 def extract_table_info(query):
     """
@@ -489,13 +617,155 @@ def extract_table_info(query):
 
     return schema_name, table_name
 
-def generate_enhanced_response(query, doc_chunks, web_content, table_name=None):
-   """Generate response for DOC queries using Gemini model."""
-   if not st.session_state.doc_data:
-       return "No Document data available. Please load a Doc file first."
+def get_relevant_chunks(query, doc_data):
+    """Retrieve relevant text chunks using embeddings and similarity search."""
+    if not doc_data or 'chunks' not in doc_data or not doc_data['chunks']:
+        st.error("No document content available")
+        return []
 
-   # Include table_name in the prompt only if it is provided
-   table_section = f"""
+    try:
+        # Get cached embedding model
+        embeddings_model = get_embeddings_model()
+        if embeddings_model is None:
+            st.error("Failed to initialize embeddings model")
+            return []
+
+        # Create or get vectorstore
+        if "vectorstore" not in st.session_state or st.session_state.vectorstore is None:
+            with st.spinner("Creating embeddings..."):
+                try:
+                    # Create ChromaDB directory if it doesn't exist
+                    os.makedirs("./chroma_db", exist_ok=True)
+                    
+                    # Create new vectorstore with persist
+                    st.session_state.vectorstore = Chroma(
+                        persist_directory="./chroma_db",
+                        embedding_function=embeddings_model
+                    )
+                    
+                    # Add documents to vectorstore
+                    st.session_state.vectorstore.add_texts(
+                        texts=doc_data['chunks']
+                    )
+                    
+                    st.success("Embeddings created successfully!")
+                except Exception as e:
+                    st.error(f"Failed to create vectorstore: {str(e)}")
+                    return []
+
+        # Perform similarity search
+        try:
+            results = st.session_state.vectorstore.similarity_search(
+                query,
+                k=5  # Number of results to retrieve
+            )
+            if not results:
+                st.warning("No relevant content found")
+                return []
+            
+            return [doc.page_content for doc in results]
+        except Exception as e:
+            st.error(f"Search failed: {str(e)}")
+            return []
+
+    except Exception as e:
+        st.error(f"Error processing embeddings: {str(e)}")
+        return []
+
+def fetch_table_columns_from_json(table_name, schema_name="AP", json_file="schema_table_links.json"):
+    """Fetch column details for a specific table using a JSON file with schema and table URLs."""
+    try:
+        print(f"Fetching columns for {schema_name}.{table_name}")
+        
+        # Load the JSON file
+        with open(json_file, "r") as f:
+            schema_data = json.load(f)
+
+        # Check if the schema exists in the JSON file
+        if schema_name not in schema_data:
+            print(f"Schema '{schema_name}' not found in JSON file. Available schemas: {list(schema_data.keys())}")
+            return f"No schema found for '{schema_name}'. Please verify the schema name."
+
+        # Check format of schema data
+        print(f"Type of schema_data[{schema_name}]: {type(schema_data[schema_name])}")
+        
+        # If it's a string (the URL for all tables in schema)
+        if isinstance(schema_data[schema_name], str):
+            # Modify URL to target specific table
+            base_url = schema_data[schema_name]
+            # Replace the wildcard with the specific table name
+            table_url = base_url.replace("*", table_name.upper())
+            print(f"Using schema URL: {table_url}")
+        
+        # If it's a list of table URLs
+        elif isinstance(schema_data[schema_name], list):
+            # Find the URL for the requested table
+            table_url = None
+            print(f"Looking for c_name={table_name.upper()} in URLs")
+            for url in schema_data[schema_name]:
+                if f"c_name={table_name.upper()}" in url:
+                    table_url = url
+                    print(f"Found matching URL: {url}")
+                    break
+
+            if not table_url:
+                print(f"No URL match for '{table_name}' in schema '{schema_name}'")
+                return f"No table found for '{table_name}' in schema '{schema_name}'. Please verify the table name."
+        else:
+            return f"Schema '{schema_name}' has an unsupported data format."
+
+        # Fetch the table details page
+        print(f"Fetching table details from URL: {table_url}")
+        response = requests.get(table_url, timeout=10)
+        response.raise_for_status()
+        print(f"Response status: {response.status_code}")
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # Find the table containing column details
+        column_table = soup.find("table", {"summary": "Column details for this table"})
+        if not column_table:
+            print("Column details table not found in HTML response")
+            return f"No column details found for table '{table_name}'."
+
+        # Extract column details
+        columns = []
+        rows = column_table.find_all("tr")[1:]  # Skip the header row
+        for row in rows:
+            cells = row.find_all("td")
+            if len(cells) >= 5:
+                column_name = cells[0].text.strip()
+                data_type = cells[1].text.strip()
+                length = cells[2].text.strip()
+                nullable = cells[3].text.strip()
+                description = cells[4].text.strip()
+                columns.append({
+                    "name": column_name,
+                    "type": data_type,
+                    "length": length,
+                    "nullable": nullable,
+                    "description": description
+                })
+
+        # Format the response
+        if columns:
+            formatted_columns = "\n".join(
+                [f"- **{col['name']}** ({col['type']}): Length={col['length']}, Nullable={col['nullable']}, Description={col['description']}" for col in columns]
+            )
+            return f"### Columns in {schema_name}.{table_name}\n\n{formatted_columns}"
+        else:
+            return f"No column details found for table '{schema_name}.{table_name}'."
+    except FileNotFoundError:
+        return f"JSON file '{json_file}' not found. Please ensure the file exists."
+    except Exception as e:
+        return f"Failed to fetch table columns: {str(e)}"
+
+def generate_enhanced_response(query, doc_chunks, web_content, table_name=None):
+    """Generate response for DOC queries using Gemini model."""
+    if not st.session_state.doc_data:
+        return "No Document data available. Please load a Doc file first."
+
+    # Include table_name in the prompt only if it is provided
+    table_section = f"""
 ## Table: {table_name}
 | Column Name   | Data Type   | Length | Nullable | Description          |
 |---------------|-------------|--------|----------|----------------------|
@@ -503,14 +773,14 @@ def generate_enhanced_response(query, doc_chunks, web_content, table_name=None):
 | VENDOR_ID     | NUMBER      | (10)   | No       | Vendor identifier    |
 """ if table_name else ""
 
-   # Capture recent conversation history
-   chat_history = ""
-   if len(st.session_state.messages) > 0:
-       # Get the last 5 messages or all messages if less than 5
-       recent_messages = st.session_state.messages[-5:] if len(st.session_state.messages) > 5 else st.session_state.messages
-       chat_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in recent_messages])
+    # Capture recent conversation history
+    chat_history = ""
+    if len(st.session_state.messages) > 0:
+        # Get the last 5 messages or all messages if less than 5
+        recent_messages = st.session_state.messages[-5:] if len(st.session_state.messages) > 5 else st.session_state.messages
+        chat_history = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in recent_messages])
 
-   prompt = f"""
+    prompt = f"""
 You are an expert AI assistant specializing in Oracle Payables and P2P processes. When the user asks about a specific table, fetch the column details from the Oracle ETRM website and provide a detailed response.
 
 For table queries:
@@ -586,150 +856,175 @@ Format your response using clear markdown formatting:
 If information conflicts between sources, explain the differences and recommend the best approach.
 """
 
-   try:
-       response = model.generate_content(prompt)
-       return response.text.strip()
-   except Exception as e:
-       st.error(f"Error generating response: {e}")
-       return None
+    try:
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        st.error(f"Error generating response: {e}")
+        return None
 
+# Main function combining authentication and existing app logic
 def main():
-    st.title("P2P Q&A App (Payables User Guide)")
-    st.caption("Ask questions about Oracle Payables processes, concepts, and database tables.")
+    # Configure page settings
+    st.set_page_config(page_title="P2P Chatbot", layout="wide")
     
-    # Load feedback data
-    if not st.session_state["feedback_data"]:
-        st.session_state["feedback_data"] = load_feedback_data()
+    # Initialize session state variables for authentication
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
     
-    # Process DOC file
-    if st.session_state["doc_data"] is None:
-        if process_doc():
-            st.success("Document processed successfully!")
-            st.info(st.session_state["doc_data"]["summary"])
+    if "demo_mode" not in st.session_state:
+        st.session_state.demo_mode = False
     
-    if st.session_state["doc_data"] is not None:
+    # Display the appropriate page based on authentication state
+    if not is_authenticated():
+        if st.session_state.show_signup:
+            show_signup_page()
+        else:
+            show_login_page()
+    else:
+        # If authenticated, show the main app
+        # Show profile in sidebar
+        show_profile_component()
         
-        # Display detected schema and table when available
-        if st.session_state.detected_schema or st.session_state.detected_table:
-            with st.expander("Table Detection Details", expanded=True):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.info(f"**Detected Schema**: {st.session_state.detected_schema or 'None'}")
-                with col2:
-                    st.info(f"**Detected Table**: {st.session_state.detected_table or 'None'}")
+        # Display demo mode warning if applicable
+        if st.session_state.demo_mode:
+            st.warning("You are in demo mode. Some features may be limited. Sign up for full access.")
         
-        # Sidebar with feedback history
-        if st.sidebar.checkbox("Show Feedback History"):
-            st.sidebar.markdown("### Feedback History")
-            for msg_id, data in st.session_state.feedback_data.items():
-                if "rating" in data:
-                    st.sidebar.markdown(f"**Query:** {data.get('query', 'Unknown')}")
-                    st.sidebar.markdown(f"**Rating:** {data.get('rating', 0)}/5 stars")
-                    if data.get('code'):
-                        with st.sidebar.expander("Show Code"):
-                            st.sidebar.code(data['code'], language="python")
-                    st.sidebar.markdown("---")
-
-        # Display chat history
-        for i, message in enumerate(st.session_state.messages):
-            display_chat_message(
-                message["role"],
-                message["content"],
-                message.get("code"),
-                message.get("results"),
-                message_id=i if message["role"] == "assistant" else None
-            )
-
-        # Check if we need to regenerate a response
-        if st.session_state.awaiting_regeneration:
-            with st.spinner("Generating an improved response based on your feedback..."):
-                # Get the current query
-                query = st.session_state.current_query
-                attempt_num = st.session_state.query_attempts.get(query, 1)
-                
-                # Get doc content
-                doc_chunks = get_relevant_chunks(query, st.session_state.doc_data)
-                
-                # Get web content
-                web_content = get_web_content(query)
-                
-                # Generate enhanced response with feedback note
-                improved_response = generate_enhanced_response(query, doc_chunks, web_content)
-                if improved_response:
-                    improved_response = f"*This is an improved response (attempt #{attempt_num}) based on your feedback:*\n\n{improved_response}"
-                    
-                    # Add to messages
-                    message_id = len(st.session_state.messages)
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": improved_response,
-                        "results": None,
-                        "recommendations": None
-                    })
-                    
-                    # Reset flag
-                    st.session_state.awaiting_regeneration = False
-                    
-                    # Rerun to display the new message
-                    st.rerun()
-
-        # Chat input
-        if query := st.chat_input("Ask me about Payables..."):
-            st.session_state.current_query = query
-            st.session_state.messages.append({"role": "user", "content": query})
+        # Original app title
+        st.title(f"P2P Q&A App (Payables User Guide)")
+        st.caption(f"Welcome, {st.session_state.username}! Ask questions about Oracle Payables processes, concepts, and database tables.")
+        
+        # Load feedback data
+        if not st.session_state["feedback_data"]:
+            st.session_state["feedback_data"] = load_feedback_data()
+        
+        # Process DOC file
+        if st.session_state["doc_data"] is None:
+            if process_doc():
+                st.success("Document processed successfully!")
+                st.info(st.session_state["doc_data"]["summary"])
+        
+        if st.session_state["doc_data"] is not None:
+            # Display detected schema and table when available
+            if st.session_state.detected_schema or st.session_state.detected_table:
+                with st.expander("Table Detection Details", expanded=True):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.info(f"**Detected Schema**: {st.session_state.detected_schema or 'None'}")
+                    with col2:
+                        st.info(f"**Detected Table**: {st.session_state.detected_table or 'None'}")
             
-            # Clear previous detection
-            st.session_state.detected_schema = None
-            st.session_state.detected_table = None
-            
-            with st.spinner("Analyzing documentation and web sources..."):
-                # Use improved table detection function
-                schema_name, table_name = extract_table_info(query)
-                
-                if schema_name and table_name:
-                    # Store detected values
-                    st.session_state.detected_schema = schema_name
-                    st.session_state.detected_table = table_name
+            # Sidebar with feedback history
+            if st.sidebar.checkbox("Show Feedback History"):
+                st.sidebar.markdown("### Feedback History")
+                for msg_id, data in st.session_state.feedback_data.items():
+                    if "rating" in data:
+                        st.sidebar.markdown(f"**Query:** {data.get('query', 'Unknown')}")
+                        st.sidebar.markdown(f"**Rating:** {data.get('rating', 0)}/5 stars")
+                        if data.get('code'):
+                            with st.sidebar.expander("Show Code"):
+                                st.sidebar.code(data['code'], language="python")
+                        st.sidebar.markdown("---")
+
+            # Display chat history
+            for i, message in enumerate(st.session_state.messages):
+                display_chat_message(
+                    message["role"],
+                    message["content"],
+                    message.get("code"),
+                    message.get("results"),
+                    message_id=i if message["role"] == "assistant" else None
+                )
+
+            # Check if we need to regenerate a response
+            if st.session_state.awaiting_regeneration:
+                with st.spinner("Generating an improved response based on your feedback..."):
+                    # Get the current query
+                    query = st.session_state.current_query
+                    attempt_num = st.session_state.query_attempts.get(query, 1)
                     
-                    print(f"Detected: Schema={schema_name}, Table={table_name}")
-                    response = fetch_table_columns_from_json(table_name, schema_name=schema_name)
-                else:
                     # Get doc content
                     doc_chunks = get_relevant_chunks(query, st.session_state.doc_data)
                     
                     # Get web content
                     web_content = get_web_content(query)
                     
-                    # Generate enhanced response
-                    response = generate_enhanced_response(query, doc_chunks, web_content)
+                    # Generate enhanced response with feedback note
+                    improved_response = generate_enhanced_response(query, doc_chunks, web_content)
+                    if improved_response:
+                        improved_response = f"*This is an improved response (attempt #{attempt_num}) based on your feedback:*\n\n{improved_response}"
+                        
+                        # Add to messages
+                        message_id = len(st.session_state.messages)
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": improved_response,
+                            "results": None,
+                            "recommendations": None
+                        })
+                        
+                        # Reset flag
+                        st.session_state.awaiting_regeneration = False
+                        
+                        # Rerun to display the new message
+                        st.rerun()
+
+            # Chat input
+            if query := st.chat_input("Ask me about Payables..."):
+                st.session_state.current_query = query
+                st.session_state.messages.append({"role": "user", "content": query})
                 
-                if response:
-                    message_id = len(st.session_state.messages)
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": response,
-                        "results": None,
-                        "recommendations": None
-                    })
+                # Clear previous detection
+                st.session_state.detected_schema = None
+                st.session_state.detected_table = None
+                
+                with st.spinner("Analyzing documentation and web sources..."):
+                    # Use improved table detection function
+                    schema_name, table_name = extract_table_info(query)
                     
-                    # Rerun to display the new message and feedback options
-                    st.rerun()
+                    if schema_name and table_name:
+                        # Store detected values
+                        st.session_state.detected_schema = schema_name
+                        st.session_state.detected_table = table_name
+                        
+                        print(f"Detected: Schema={schema_name}, Table={table_name}")
+                        response = fetch_table_columns_from_json(table_name, schema_name=schema_name)
+                    else:
+                        # Get doc content
+                        doc_chunks = get_relevant_chunks(query, st.session_state.doc_data)
+                        
+                        # Get web content
+                        web_content = get_web_content(query)
+                        
+                        # Generate enhanced response
+                        response = generate_enhanced_response(query, doc_chunks, web_content)
+                    
+                    if response:
+                        message_id = len(st.session_state.messages)
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": response,
+                            "results": None,
+                            "recommendations": None
+                        })
+                        
+                        # Rerun to display the new message and feedback options
+                        st.rerun()
 
-        # Sidebar buttons
-        if st.sidebar.button("Clear Chat History"):
-            st.session_state.messages = []
-            st.session_state.current_query = None
-            st.session_state.awaiting_regeneration = False
-            st.session_state.query_attempts = {}
-            st.session_state.detected_schema = None
-            st.session_state.detected_table = None
-            st.rerun()
-            
-        if st.sidebar.button("Clear Feedback Data"):
-            st.session_state.feedback_data = {}
-            if os.path.exists(FEEDBACK_FILE):
-                os.remove(FEEDBACK_FILE)
-            st.rerun()
-
+            # Sidebar buttons
+            if st.sidebar.button("Clear Chat History"):
+                st.session_state.messages = []
+                st.session_state.current_query = None
+                st.session_state.awaiting_regeneration = False
+                st.session_state.query_attempts = {}
+                st.session_state.detected_schema = None
+                st.session_state.detected_table = None
+                st.rerun()
+                
+            if st.sidebar.button("Clear Feedback Data"):
+                st.session_state.feedback_data = {}
+                if os.path.exists(FEEDBACK_FILE):
+                    os.remove(FEEDBACK_FILE)
+                st.rerun()
 if __name__ == "__main__":
    main()
