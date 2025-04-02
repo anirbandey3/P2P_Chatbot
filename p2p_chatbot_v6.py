@@ -23,7 +23,26 @@ import time
 import json
 from urllib.parse import urljoin
 import re
-
+import streamlit as st
+import pandas as pd
+import google.generativeai as genai
+import matplotlib.pyplot as plt
+import io
+import os
+import json
+from docx import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
+import requests
+from googleapiclient.discovery import build
+from bs4 import BeautifulSoup
+import time
+import re
+import hashlib
+import uuid
+import base64
+from PIL import Image
 
 # ------- Authentication System -------
 
