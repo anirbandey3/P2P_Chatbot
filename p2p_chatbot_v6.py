@@ -69,7 +69,7 @@ FEEDBACK_FILE = "feedback_data.json"
 
 # List of common words to ignore in table detection
 COMMON_WORDS = ["GIVE", "SHOW", "LIST", "DISPLAY", "GET", "FIND", "TELL", "FETCH", "PROVIDE", 
-               "THE", "FOR", "FROM", "COLUMNS", "FIELDS", "TABLE", "TABLES", "COLUMN", "FIELD"]
+               "THE", "FOR", "FROM", "COLUMNS", "FIELDS", "TABLE", "TABLES", "COLUMN", "FIELD","WHAT"]
 
 def load_feedback_data():
     """Load feedback data from file if it exists"""
