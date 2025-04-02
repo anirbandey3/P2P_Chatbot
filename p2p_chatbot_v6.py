@@ -18,9 +18,6 @@ import json
 from urllib.parse import urljoin
 import re
 
-import sys
-import pysqlite3
-sys.modules["sqlite3"] = pysqlite3
 # Configure page settings
 st.set_page_config(page_title="P2P Chatbot", layout="wide")
 
