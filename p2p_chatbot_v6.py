@@ -17,6 +17,8 @@ import time
 import json
 from urllib.parse import urljoin
 import re
+sys.modules["sqlite3"] = pysqlite3
+import sqlite3
 
 # Configure page settings
 st.set_page_config(page_title="P2P Chatbot", layout="wide")
