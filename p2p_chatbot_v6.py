@@ -1,3 +1,5 @@
+import sys
+import pysqlite3  # Add this import before using it
 # Patch sqlite3 with upgraded version
 sys.modules["sqlite3"] = pysqlite3
 import sqlite3  # Now this is the patched one
