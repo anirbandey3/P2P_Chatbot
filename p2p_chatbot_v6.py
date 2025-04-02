@@ -1,18 +1,7 @@
-import sys
-import subprocess
-
-# Try to import pysqlite3, install it if missing
-try:
-    import pysqlite3
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "pysqlite3-binary"])
-    import pysqlite3
-
 # Patch sqlite3 with upgraded version
 sys.modules["sqlite3"] = pysqlite3
 import sqlite3  # Now this is the patched one
 print("✅ Patched SQLite version:", sqlite3.sqlite_version)
-
 import streamlit as st
 import pandas as pd
 import google.generativeai as genai
