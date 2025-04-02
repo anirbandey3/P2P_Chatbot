@@ -11,4 +11,5 @@ html2text==2020.1.16
 requests==2.31.0
 matplotlib
 google-api-python-client
+pysqlite3
 
